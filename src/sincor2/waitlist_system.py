@@ -54,35 +54,58 @@ class WaitlistManager:
                 "SELECT sql FROM sqlite_master WHERE type='table' AND name='waitlist'"
             ).fetchone()
             if ddl_row and 'product_interest TEXT NOT NULL' in ddl_row[0]:
-                conn.executescript('''
-                    BEGIN;
-                    ALTER TABLE waitlist RENAME TO waitlist_old;
-                    CREATE TABLE waitlist (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        email_hash TEXT UNIQUE NOT NULL,
-                        encrypted_email TEXT NOT NULL,
-                        product_interest TEXT,
-                        company_name TEXT,
-                        industry TEXT,
-                        team_size TEXT,
-                        monthly_revenue TEXT,
-                        pain_points TEXT,
-                        signup_date DATETIME DEFAULT CURRENT_TIMESTAMP,
-                        ip_address TEXT,
-                        user_agent TEXT,
-                        verification_token TEXT,
-                        is_verified BOOLEAN DEFAULT FALSE,
-                        priority_score INTEGER DEFAULT 0,
-                        notification_sent BOOLEAN DEFAULT FALSE,
-                        referral_code TEXT,
-                        utm_source TEXT,
-                        utm_medium TEXT,
-                        utm_campaign TEXT
-                    );
-                    INSERT INTO waitlist SELECT * FROM waitlist_old;
-                    DROP TABLE waitlist_old;
-                    COMMIT;
-                ''')
+                import logging as _logging
+                _log = _logging.getLogger(__name__)
+                _log.info("Migrating waitlist schema: removing NOT NULL from product_interest")
+                try:
+                    conn.executescript('''
+                        BEGIN;
+                        ALTER TABLE waitlist RENAME TO waitlist_old;
+                        CREATE TABLE waitlist (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            email_hash TEXT UNIQUE NOT NULL,
+                            encrypted_email TEXT NOT NULL,
+                            product_interest TEXT,
+                            company_name TEXT,
+                            industry TEXT,
+                            team_size TEXT,
+                            monthly_revenue TEXT,
+                            pain_points TEXT,
+                            signup_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+                            ip_address TEXT,
+                            user_agent TEXT,
+                            verification_token TEXT,
+                            is_verified BOOLEAN DEFAULT FALSE,
+                            priority_score INTEGER DEFAULT 0,
+                            notification_sent BOOLEAN DEFAULT FALSE,
+                            referral_code TEXT,
+                            utm_source TEXT,
+                            utm_medium TEXT,
+                            utm_campaign TEXT
+                        );
+                        INSERT INTO waitlist (
+                            id, email_hash, encrypted_email, product_interest,
+                            company_name, industry, team_size, monthly_revenue,
+                            pain_points, signup_date, ip_address, user_agent,
+                            verification_token, is_verified, priority_score,
+                            notification_sent, referral_code, utm_source,
+                            utm_medium, utm_campaign
+                        )
+                        SELECT
+                            id, email_hash, encrypted_email, product_interest,
+                            company_name, industry, team_size, monthly_revenue,
+                            pain_points, signup_date, ip_address, user_agent,
+                            verification_token, is_verified, priority_score,
+                            notification_sent, referral_code, utm_source,
+                            utm_medium, utm_campaign
+                        FROM waitlist_old;
+                        DROP TABLE waitlist_old;
+                        COMMIT;
+                    ''')
+                    _log.info("Waitlist schema migration completed successfully")
+                except Exception as exc:
+                    _log.error("Waitlist schema migration failed: %s", exc)
+                    raise
 
             conn.execute('''
                 CREATE TABLE IF NOT EXISTS product_analytics (
