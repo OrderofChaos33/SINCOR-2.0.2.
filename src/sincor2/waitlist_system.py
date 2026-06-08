@@ -3,16 +3,53 @@ SINCOR Waitlist Management System
 Handles product waitlist signups and notifications
 """
 
-import sqlite3
 import hashlib
+import logging
+import os
+import re
 import secrets
 import smtplib
-import os
+import sqlite3
 from datetime import datetime, timedelta
-from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from flask import request, jsonify
-import re
+from email.mime.text import MIMEText
+
+from flask import jsonify, request
+
+logger = logging.getLogger(__name__)
+
+_WAITLIST_DDL = '''
+    CREATE TABLE IF NOT EXISTS waitlist (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        email_hash TEXT UNIQUE NOT NULL,
+        encrypted_email TEXT NOT NULL,
+        product_interest TEXT,
+        company_name TEXT,
+        industry TEXT,
+        team_size TEXT,
+        monthly_revenue TEXT,
+        pain_points TEXT,
+        signup_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+        ip_address TEXT,
+        user_agent TEXT,
+        verification_token TEXT,
+        is_verified BOOLEAN DEFAULT FALSE,
+        priority_score INTEGER DEFAULT 0,
+        notification_sent BOOLEAN DEFAULT FALSE,
+        referral_code TEXT,
+        utm_source TEXT,
+        utm_medium TEXT,
+        utm_campaign TEXT
+    )
+'''
+
+_WAITLIST_COLUMNS = (
+    "id, email_hash, encrypted_email, product_interest, company_name, industry, "
+    "team_size, monthly_revenue, pain_points, signup_date, ip_address, user_agent, "
+    "verification_token, is_verified, priority_score, notification_sent, referral_code, "
+    "utm_source, utm_medium, utm_campaign"
+)
+
 
 class WaitlistManager:
     def __init__(self, db_path="data/waitlist.db"):
@@ -24,87 +61,27 @@ class WaitlistManager:
         os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
 
         with sqlite3.connect(self.db_path) as conn:
-            conn.execute('''
-                CREATE TABLE IF NOT EXISTS waitlist (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    email_hash TEXT UNIQUE NOT NULL,
-                    encrypted_email TEXT NOT NULL,
-                    product_interest TEXT,
-                    company_name TEXT,
-                    industry TEXT,
-                    team_size TEXT,
-                    monthly_revenue TEXT,
-                    pain_points TEXT,
-                    signup_date DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    ip_address TEXT,
-                    user_agent TEXT,
-                    verification_token TEXT,
-                    is_verified BOOLEAN DEFAULT FALSE,
-                    priority_score INTEGER DEFAULT 0,
-                    notification_sent BOOLEAN DEFAULT FALSE,
-                    referral_code TEXT,
-                    utm_source TEXT,
-                    utm_medium TEXT,
-                    utm_campaign TEXT
-                )
-            ''')
+            conn.execute(_WAITLIST_DDL)
 
             # Migrate: drop NOT NULL on product_interest if it exists on an older schema
             ddl_row = conn.execute(
                 "SELECT sql FROM sqlite_master WHERE type='table' AND name='waitlist'"
             ).fetchone()
             if ddl_row and 'product_interest TEXT NOT NULL' in ddl_row[0]:
-                import logging as _logging
-                _log = _logging.getLogger(__name__)
-                _log.info("Migrating waitlist schema: removing NOT NULL from product_interest")
+                logger.info("Migrating waitlist schema: removing NOT NULL from product_interest")
                 try:
-                    conn.executescript('''
+                    conn.executescript(f'''
                         BEGIN;
                         ALTER TABLE waitlist RENAME TO waitlist_old;
-                        CREATE TABLE waitlist (
-                            id INTEGER PRIMARY KEY AUTOINCREMENT,
-                            email_hash TEXT UNIQUE NOT NULL,
-                            encrypted_email TEXT NOT NULL,
-                            product_interest TEXT,
-                            company_name TEXT,
-                            industry TEXT,
-                            team_size TEXT,
-                            monthly_revenue TEXT,
-                            pain_points TEXT,
-                            signup_date DATETIME DEFAULT CURRENT_TIMESTAMP,
-                            ip_address TEXT,
-                            user_agent TEXT,
-                            verification_token TEXT,
-                            is_verified BOOLEAN DEFAULT FALSE,
-                            priority_score INTEGER DEFAULT 0,
-                            notification_sent BOOLEAN DEFAULT FALSE,
-                            referral_code TEXT,
-                            utm_source TEXT,
-                            utm_medium TEXT,
-                            utm_campaign TEXT
-                        );
-                        INSERT INTO waitlist (
-                            id, email_hash, encrypted_email, product_interest,
-                            company_name, industry, team_size, monthly_revenue,
-                            pain_points, signup_date, ip_address, user_agent,
-                            verification_token, is_verified, priority_score,
-                            notification_sent, referral_code, utm_source,
-                            utm_medium, utm_campaign
-                        )
-                        SELECT
-                            id, email_hash, encrypted_email, product_interest,
-                            company_name, industry, team_size, monthly_revenue,
-                            pain_points, signup_date, ip_address, user_agent,
-                            verification_token, is_verified, priority_score,
-                            notification_sent, referral_code, utm_source,
-                            utm_medium, utm_campaign
-                        FROM waitlist_old;
+                        {_WAITLIST_DDL};
+                        INSERT INTO waitlist ({_WAITLIST_COLUMNS})
+                        SELECT {_WAITLIST_COLUMNS} FROM waitlist_old;
                         DROP TABLE waitlist_old;
                         COMMIT;
                     ''')
-                    _log.info("Waitlist schema migration completed successfully")
+                    logger.info("Waitlist schema migration completed successfully")
                 except Exception as exc:
-                    _log.error("Waitlist schema migration failed: %s", exc)
+                    logger.error("Waitlist schema migration failed: %s", exc)
                     raise
 
             conn.execute('''
@@ -116,16 +93,16 @@ class WaitlistManager:
                     last_updated DATETIME DEFAULT CURRENT_TIMESTAMP
                 )
             ''')
-            
+
             # Initialize product analytics if empty
             products = ['Growth Engine', 'Ops Core', 'Creative Forge', 'Intelligence Hub']
             for product in products:
                 conn.execute('''
                     INSERT OR IGNORE INTO product_analytics (product_name) VALUES (?)
                 ''', (product,))
-            
+
             conn.commit()
-    
+
     def hash_email(self, email):
         """Create secure hash of email for deduplication"""
         return hashlib.sha256(email.lower().encode()).hexdigest()
