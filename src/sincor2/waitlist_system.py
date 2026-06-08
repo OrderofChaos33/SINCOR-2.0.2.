@@ -22,14 +22,14 @@ class WaitlistManager:
     def init_database(self):
         """Initialize waitlist database with security measures"""
         os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
-        
+
         with sqlite3.connect(self.db_path) as conn:
             conn.execute('''
                 CREATE TABLE IF NOT EXISTS waitlist (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     email_hash TEXT UNIQUE NOT NULL,
                     encrypted_email TEXT NOT NULL,
-                    product_interest TEXT NOT NULL,
+                    product_interest TEXT,
                     company_name TEXT,
                     industry TEXT,
                     team_size TEXT,
@@ -48,7 +48,42 @@ class WaitlistManager:
                     utm_campaign TEXT
                 )
             ''')
-            
+
+            # Migrate: drop NOT NULL on product_interest if it exists on an older schema
+            ddl_row = conn.execute(
+                "SELECT sql FROM sqlite_master WHERE type='table' AND name='waitlist'"
+            ).fetchone()
+            if ddl_row and 'product_interest TEXT NOT NULL' in ddl_row[0]:
+                conn.executescript('''
+                    BEGIN;
+                    ALTER TABLE waitlist RENAME TO waitlist_old;
+                    CREATE TABLE waitlist (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        email_hash TEXT UNIQUE NOT NULL,
+                        encrypted_email TEXT NOT NULL,
+                        product_interest TEXT,
+                        company_name TEXT,
+                        industry TEXT,
+                        team_size TEXT,
+                        monthly_revenue TEXT,
+                        pain_points TEXT,
+                        signup_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        ip_address TEXT,
+                        user_agent TEXT,
+                        verification_token TEXT,
+                        is_verified BOOLEAN DEFAULT FALSE,
+                        priority_score INTEGER DEFAULT 0,
+                        notification_sent BOOLEAN DEFAULT FALSE,
+                        referral_code TEXT,
+                        utm_source TEXT,
+                        utm_medium TEXT,
+                        utm_campaign TEXT
+                    );
+                    INSERT INTO waitlist SELECT * FROM waitlist_old;
+                    DROP TABLE waitlist_old;
+                    COMMIT;
+                ''')
+
             conn.execute('''
                 CREATE TABLE IF NOT EXISTS product_analytics (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
