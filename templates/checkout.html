@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Checkout - SINCOR</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://www.paypal.com/sdk/js?client-id={{ paypal_client_id }}&currency=USD"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+        * { font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+
+        .loading {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+
+        .success-animation {
+            animation: slideIn 0.5s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-b from-gray-50 to-white">
+    <!-- Navigation -->
+    <nav class="bg-white shadow-sm sticky top-0 z-50">
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
+                    <span class="text-white font-bold text-lg">S</span>
+                </div>
+                <span class="text-xl font-bold text-gray-900">SINCOR</span>
+            </div>
+            <a href="/buy" class="text-gray-600 hover:text-gray-900">← Back to Services</a>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+
+        <!-- Order Summary -->
+        <div class="bg-white rounded-xl shadow-md p-8 mb-8">
+            <h1 class="text-3xl font-bold text-gray-900 mb-8">Order Summary</h1>
+
+            <div id="orderSummary" class="space-y-6">
+                <div class="bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg p-6 border border-blue-200">
+                    <div class="grid md:grid-cols-2 gap-6">
+                        <div>
+                            <div class="text-sm text-gray-600 mb-2">Service</div>
+                            <div id="serviceName" class="text-xl font-bold text-gray-900">-</div>
+                        </div>
+                        <div>
+                            <div class="text-sm text-gray-600 mb-2">Complexity</div>
+                            <div id="tierName" class="text-xl font-bold text-gray-900">-</div>
+                        </div>
+                        <div>
+                            <div class="text-sm text-gray-600 mb-2">Delivery Speed</div>
+                            <div id="speedName" class="text-xl font-bold text-gray-900">-</div>
+                        </div>
+                        <div>
+                            <div class="text-sm text-gray-600 mb-2">Quality Tier</div>
+                            <div id="qualityName" class="text-xl font-bold text-gray-900">-</div>
+                        </div>
+                    </div>
+
+                    <div class="border-t-2 mt-6 pt-6">
+                        <div class="flex justify-between items-center">
+                            <span class="text-lg font-semibold text-gray-900">Total Investment:</span>
+                            <span id="totalAmount" class="text-4xl font-black text-blue-600">$0</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Billing Information -->
+        <div class="bg-white rounded-xl shadow-md p-8 mb-8">
+            <h2 class="text-2xl font-bold text-gray-900 mb-6">Your Information</h2>
+
+            <form id="billingForm" class="space-y-6">
+                <div class="grid md:grid-cols-2 gap-6">
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-900 mb-2">First Name *</label>
+                        <input type="text" name="firstName" id="firstName" required class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none" placeholder="John">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-900 mb-2">Last Name *</label>
+                        <input type="text" name="lastName" id="lastName" required class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none" placeholder="Doe">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-semibold text-gray-900 mb-2">Email *</label>
+                    <input type="email" name="email" id="email" required class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none" placeholder="john@company.com">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-semibold text-gray-900 mb-2">Company Name *</label>
+                    <input type="text" name="company" id="company" required class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none" placeholder="Your Company">
+                </div>
+            </form>
+        </div>
+
+        <!-- PayPal Payment -->
+        <div class="bg-white rounded-xl shadow-md p-8 mb-8">
+            <h2 class="text-2xl font-bold text-gray-900 mb-6">Payment Method</h2>
+
+            <div id="paypal-button-container" class="mb-6"></div>
+
+            <div id="payment-error" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg hidden"></div>
+
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-start gap-3">
+                <div class="text-blue-600 text-2xl">🔒</div>
+                <div>
+                    <div class="font-semibold text-blue-900">Bank-Level Security</div>
+                    <div class="text-sm text-blue-700">Your payment is processed securely through PayPal. We never see your card details.</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Guarantees -->
+        <div class="grid md:grid-cols-3 gap-6 mb-8">
+            <div class="text-center">
+                <div class="text-3xl mb-2">🛡️</div>
+                <div class="font-semibold text-gray-900 mb-1">30-Day Guarantee</div>
+                <div class="text-sm text-gray-600">Not satisfied? Full refund, no questions.</div>
+            </div>
+            <div class="text-center">
+                <div class="text-3xl mb-2">🚀</div>
+                <div class="font-semibold text-gray-900 mb-1">Fast Start</div>
+                <div class="text-sm text-gray-600">Kickoff within 24 hours of payment.</div>
+            </div>
+            <div class="text-center">
+                <div class="text-3xl mb-2">📞</div>
+                <div class="font-semibold text-gray-900 mb-1">Dedicated Support</div>
+                <div class="text-sm text-gray-600">Account manager included with all tiers.</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Success Modal -->
+    <div id="successModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-xl shadow-2xl p-8 max-w-md success-animation">
+            <div class="text-center">
+                <div class="text-6xl mb-4">✅</div>
+                <h3 class="text-2xl font-bold text-gray-900 mb-2">Payment Successful!</h3>
+                <p class="text-gray-600 mb-6">Your order has been confirmed. Check your email for next steps.</p>
+
+                <div class="bg-blue-50 rounded-lg p-4 mb-6 text-left">
+                    <div class="text-sm text-gray-600 mb-2">Order ID:</div>
+                    <div id="orderId" class="font-mono font-bold text-gray-900 break-all">-</div>
+                </div>
+
+                <a href="/" class="block bg-blue-600 text-white px-8 py-3 rounded-lg font-bold hover:bg-blue-700 transition-colors">
+                    Return to Home
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Load order from sessionStorage
+        function loadOrder() {
+            const orderData = JSON.parse(sessionStorage.getItem('pendingOrder') || '{}');
+
+            if (!orderData.service) {
+                window.location.href = '/buy';
+                return;
+            }
+
+            const serviceNames = {
+                'intelligence': 'Intelligence Reports',
+                'predictive': 'Predictive Models',
+                'agents': 'Custom AI Agents',
+                'automation': 'Automation Solutions',
+                'market': 'Market Analysis'
+            };
+
+            document.getElementById('serviceName').textContent = serviceNames[orderData.service] || orderData.serviceName;
+            document.getElementById('tierName').textContent = orderData.tier;
+            document.getElementById('speedName').textContent = orderData.speed.charAt(0).toUpperCase() + orderData.speed.slice(1);
+            document.getElementById('qualityName').textContent = orderData.quality.charAt(0).toUpperCase() + orderData.quality.slice(1);
+
+            const amount = parseFloat(orderData.price);
+            document.getElementById('totalAmount').textContent = `$${amount.toLocaleString()}`;
+
+            window.orderData = orderData;
+            window.totalAmount = amount;
+        }
+
+        // Initialize PayPal
+        function initPayPal() {
+            paypal.Buttons({
+                createOrder: (data, actions) => {
+                    // Validate form
+                    if (!document.getElementById('firstName').value ||
+                        !document.getElementById('lastName').value ||
+                        !document.getElementById('email').value ||
+                        !document.getElementById('company').value) {
+                        alert('Please fill in all fields');
+                        return;
+                    }
+
+                    return actions.order.create({
+                        purchase_units: [{
+                            amount: {
+                                value: window.totalAmount.toString(),
+                                currency_code: 'USD'
+                            },
+                            description: `${window.orderData.serviceName} - ${window.orderData.tier} Tier`
+                        }]
+                    });
+                },
+                onApprove: (data, actions) => {
+                    return actions.order.capture().then((orderDetails) => {
+                        // Order captured successfully
+                        processPayment(orderDetails);
+                    });
+                },
+                onError: (err) => {
+                    console.error('PayPal error:', err);
+                    document.getElementById('payment-error').textContent = 'Payment failed. Please try again.';
+                    document.getElementById('payment-error').classList.remove('hidden');
+                }
+            }).render('#paypal-button-container');
+        }
+
+        function processPayment(paypalOrderDetails) {
+            // Send to backend
+            const billingData = {
+                firstName: document.getElementById('firstName').value,
+                lastName: document.getElementById('lastName').value,
+                email: document.getElementById('email').value,
+                company: document.getElementById('company').value
+            };
+
+            fetch('/api/checkout', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    paypalOrderId: paypalOrderDetails.id,
+                    paypalPayerId: paypalOrderDetails.payer.payer_info?.email || 'unknown',
+                    amount: window.totalAmount,
+                    orderData: window.orderData,
+                    billingData: billingData
+                })
+            })
+            .then(r => r.json())
+            .then(result => {
+                if (result.success) {
+                    document.getElementById('orderId').textContent = result.orderId;
+                    document.getElementById('successModal').classList.remove('hidden');
+                    sessionStorage.removeItem('pendingOrder');
+                } else {
+                    alert('Error creating order: ' + result.error);
+                }
+            })
+            .catch(err => {
+                console.error('Error:', err);
+                alert('Payment processing error');
+            });
+        }
+
+        // Load and initialize
+        loadOrder();
+        initPayPal();
+    </script>
+</body>
+</html>
