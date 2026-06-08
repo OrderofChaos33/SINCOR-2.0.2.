@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Checkout - SINCOR</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://js.stripe.com/v3/"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+        * { font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+
+        .loading {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+
+        .success-animation {
+            animation: slideIn 0.5s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-b from-gray-50 to-white">
+    <!-- Navigation -->
+    <nav class="bg-white shadow-sm sticky top-0 z-50">
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
+                    <span class="text-white font-bold text-lg">S</span>
+                </div>
+                <span class="text-xl font-bold text-gray-900">SINCOR</span>
+            </div>
+            <a href="/buy" class="text-gray-600 hover:text-gray-900">← Back to Services</a>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+
+        <!-- Order Summary -->
+        <div class="bg-white rounded-xl shadow-md p-8 mb-8">
+            <h1 class="text-3xl font-bold text-gray-900 mb-8">Order Summary</h1>
+
+            <div id="orderSummary" class="space-y-6">
+                <div class="bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg p-6 border border-blue-200">
+                    <div class="grid md:grid-cols-2 gap-6">
+                        <div>
+                            <div class="text-sm text-gray-600 mb-2">Service</div>
+                            <div id="serviceName" class="text-xl font-bold text-gray-900">-</div>
+                        </div>
+                        <div>
+                            <div class="text-sm text-gray-600 mb-2">Complexity</div>
+                            <div id="tierName" class="text-xl font-bold text-gray-900">-</div>
+                        </div>
+                        <div>
+                            <div class="text-sm text-gray-600 mb-2">Delivery Speed</div>
+                            <div id="speedName" class="text-xl font-bold text-gray-900">-</div>
+                        </div>
+                        <div>
+                            <div class="text-sm text-gray-600 mb-2">Quality Tier</div>
+                            <div id="qualityName" class="text-xl font-bold text-gray-900">-</div>
+                        </div>
+                    </div>
+
+                    <div class="border-t-2 mt-6 pt-6">
+                        <div class="flex justify-between items-center">
+                            <span class="text-lg font-semibold text-gray-900">Total Investment:</span>
+                            <span id="totalAmount" class="text-4xl font-black text-blue-600">$0</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Billing Information -->
+        <div class="bg-white rounded-xl shadow-md p-8 mb-8">
+            <h2 class="text-2xl font-bold text-gray-900 mb-6">Your Information</h2>
+
+            <form id="billingForm" class="space-y-6">
+                <div class="grid md:grid-cols-2 gap-6">
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-900 mb-2">First Name *</label>
+                        <input type="text" name="firstName" id="firstName" required class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none" placeholder="John">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-900 mb-2">Last Name *</label>
+                        <input type="text" name="lastName" id="lastName" required class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none" placeholder="Doe">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-semibold text-gray-900 mb-2">Email *</label>
+                    <input type="email" name="email" id="email" required class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none" placeholder="john@company.com">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-semibold text-gray-900 mb-2">Company Name *</label>
+                    <input type="text" name="company" id="company" required class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none" placeholder="Your Company">
+                </div>
+            </form>
+        </div>
+
+        <!-- Stripe Payment -->
+        <div class="bg-white rounded-xl shadow-md p-8 mb-8">
+            <h2 class="text-2xl font-bold text-gray-900 mb-6">Payment Method</h2>
+
+            <div id="card-element" class="mb-4 p-4 border-2 border-gray-300 rounded-lg bg-white"></div>
+            <div id="card-errors" class="text-red-600 text-sm mb-4 hidden"></div>
+
+            <button id="submit-payment" class="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-4 rounded-xl font-bold text-lg hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg">
+                Pay Now
+            </button>
+
+            <div id="payment-error" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg hidden mt-4"></div>
+
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-start gap-3 mt-6">
+                <div class="text-blue-600 text-2xl">🔒</div>
+                <div>
+                    <div class="font-semibold text-blue-900">Bank-Level Security</div>
+                    <div class="text-sm text-blue-700">Your payment is processed securely by Stripe. We never see your card details.</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Guarantees -->
+        <div class="grid md:grid-cols-3 gap-6 mb-8">
+            <div class="text-center">
+                <div class="text-3xl mb-2">🛡️</div>
+                <div class="font-semibold text-gray-900 mb-1">30-Day Guarantee</div>
+                <div class="text-sm text-gray-600">Not satisfied? Full refund, no questions.</div>
+            </div>
+            <div class="text-center">
+                <div class="text-3xl mb-2">🚀</div>
+                <div class="font-semibold text-gray-900 mb-1">Fast Start</div>
+                <div class="text-sm text-gray-600">Kickoff within 24 hours of payment.</div>
+            </div>
+            <div class="text-center">
+                <div class="text-3xl mb-2">📞</div>
+                <div class="font-semibold text-gray-900 mb-1">Dedicated Support</div>
+                <div class="text-sm text-gray-600">Account manager included with all tiers.</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Success Modal -->
+    <div id="successModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-xl shadow-2xl p-8 max-w-md success-animation">
+            <div class="text-center">
+                <div class="text-6xl mb-4">✅</div>
+                <h3 class="text-2xl font-bold text-gray-900 mb-2">Payment Successful!</h3>
+                <p class="text-gray-600 mb-6">Your order has been confirmed. Check your email for next steps.</p>
+
+                <div class="bg-blue-50 rounded-lg p-4 mb-6 text-left">
+                    <div class="text-sm text-gray-600 mb-2">Order ID:</div>
+                    <div id="orderId" class="font-mono font-bold text-gray-900 break-all">-</div>
+                </div>
+
+                <a href="/" class="block bg-blue-600 text-white px-8 py-3 rounded-lg font-bold hover:bg-blue-700 transition-colors">
+                    Return to Home
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const stripe = Stripe('{{ stripe_publishable_key }}');
+        const elements = stripe.elements();
+        const cardElement = elements.create('card', {
+            style: {
+                base: {
+                    fontSize: '16px',
+                    color: '#1f2937',
+                    fontFamily: 'Inter, system-ui, sans-serif',
+                    '::placeholder': { color: '#9ca3af' }
+                },
+                invalid: { color: '#ef4444' }
+            }
+        });
+        cardElement.mount('#card-element');
+
+        cardElement.on('change', (e) => {
+            const errEl = document.getElementById('card-errors');
+            if (e.error) {
+                errEl.textContent = e.error.message;
+                errEl.classList.remove('hidden');
+            } else {
+                errEl.classList.add('hidden');
+            }
+        });
+
+        // Load order from sessionStorage
+        function loadOrder() {
+            const orderData = JSON.parse(sessionStorage.getItem('pendingOrder') || '{}');
+            if (!orderData.service) {
+                window.location.href = '/buy';
+                return;
+            }
+            const serviceNames = {
+                'intelligence': 'Intelligence Reports',
+                'predictive': 'Predictive Models',
+                'agents': 'Custom AI Agents',
+                'automation': 'Automation Solutions',
+                'market': 'Market Analysis'
+            };
+            document.getElementById('serviceName').textContent = serviceNames[orderData.service] || orderData.serviceName;
+            document.getElementById('tierName').textContent = orderData.tier;
+            document.getElementById('speedName').textContent = orderData.speed.charAt(0).toUpperCase() + orderData.speed.slice(1);
+            document.getElementById('qualityName').textContent = orderData.quality.charAt(0).toUpperCase() + orderData.quality.slice(1);
+            const amount = parseFloat(orderData.price);
+            document.getElementById('totalAmount').textContent = `$${amount.toLocaleString()}`;
+            window.orderData = orderData;
+            window.totalAmount = amount;
+        }
+
+        document.getElementById('submit-payment').addEventListener('click', async () => {
+            const btn = document.getElementById('submit-payment');
+            const firstName = document.getElementById('firstName').value.trim();
+            const lastName  = document.getElementById('lastName').value.trim();
+            const email     = document.getElementById('email').value.trim();
+            const company   = document.getElementById('company').value.trim();
+
+            if (!firstName || !lastName || !email || !company) {
+                alert('Please fill in all required fields.');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.textContent = 'Processing…';
+
+            try {
+                // 1. Create PaymentIntent on the server
+                const piRes = await fetch('/api/create-payment-intent', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        amount: Math.round(window.totalAmount * 100), // cents
+                        currency: 'usd',
+                        description: `${window.orderData.serviceName} - ${window.orderData.tier} Tier`,
+                        email: email
+                    })
+                });
+                const piData = await piRes.json();
+                if (!piData.client_secret) throw new Error(piData.error || 'Failed to create payment intent');
+
+                // 2. Confirm card payment with Stripe.js
+                const { error, paymentIntent } = await stripe.confirmCardPayment(piData.client_secret, {
+                    payment_method: {
+                        card: cardElement,
+                        billing_details: { name: `${firstName} ${lastName}`, email: email }
+                    }
+                });
+
+                if (error) throw new Error(error.message);
+
+                // 3. Confirm with backend
+                const confirmRes = await fetch('/api/checkout', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        stripePaymentIntentId: paymentIntent.id,
+                        amount: window.totalAmount,
+                        orderData: window.orderData,
+                        billingData: { firstName, lastName, email, company }
+                    })
+                });
+                const result = await confirmRes.json();
+
+                if (result.success) {
+                    document.getElementById('orderId').textContent = result.orderId;
+                    document.getElementById('successModal').classList.remove('hidden');
+                    sessionStorage.removeItem('pendingOrder');
+                } else {
+                    throw new Error(result.error || 'Order confirmation failed');
+                }
+            } catch (err) {
+                const errEl = document.getElementById('payment-error');
+                errEl.textContent = err.message;
+                errEl.classList.remove('hidden');
+                btn.disabled = false;
+                btn.textContent = 'Pay Now';
+            }
+        });
+
+        loadOrder();
+    </script>
+</body>
+</html>
