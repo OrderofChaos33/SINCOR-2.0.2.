@@ -25,12 +25,17 @@ def env_defaults(monkeypatch):
 
 
 @pytest.fixture
-def app(monkeypatch):
+def app(monkeypatch, tmp_path):
     from sincor2 import app as app_module
+    from sincor2.waitlist_system import WaitlistManager
 
     monkeypatch.setattr(app_module, "StripeCheckout", lambda api_key=None: MockStripeCheckout())
     flask_app = app_module.create_app()
     flask_app.config.update(TESTING=True)
+    # Use a fresh per-test DB so tests don't share waitlist state
+    flask_app.extensions["waitlist_manager"] = WaitlistManager(
+        db_path=str(tmp_path / "waitlist.db")
+    )
     return flask_app
 
 
